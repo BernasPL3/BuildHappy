@@ -1,0 +1,83 @@
+name: Build BuildHappy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Swift Version
+        run: swift --version
+
+      - name: Build Release
+        run: |
+          swift build -c release
+
+      - name: Create App Bundle
+        run: |
+          APP_NAME="BuildHappy"
+
+          mkdir -p "$APP_NAME.app/Contents/MacOS"
+          mkdir -p "$APP_NAME.app/Contents/Resources"
+
+          cp ".build/release/$APP_NAME" \
+             "$APP_NAME.app/Contents/MacOS/$APP_NAME"
+
+          if [ -f "Assets/BuildHappy.icns" ]; then
+            cp "Assets/BuildHappy.icns" \
+               "$APP_NAME.app/Contents/Resources/"
+          fi
+
+          cat > "$APP_NAME.app/Contents/Info.plist" << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleName</key>
+              <string>BuildHappy</string>
+
+              <key>CFBundleExecutable</key>
+              <string>BuildHappy</string>
+
+              <key>CFBundleIdentifier</key>
+              <string>com.buildhappy.app</string>
+
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+
+              <key>CFBundleIconFile</key>
+              <string>BuildHappy.icns</string>
+
+              <key>LSMinimumSystemVersion</key>
+              <string>11.0</string>
+          </dict>
+          </plist>
+          EOF
+
+          chmod +x "$APP_NAME.app/Contents/MacOS/$APP_NAME"
+
+      - name: Create DMG
+        run: |
+          hdiutil create \
+            -volname "BuildHappy" \
+            -srcfolder BuildHappy.app \
+            -ov \
+            -format UDZO \
+            BuildHappy.dmg
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: BuildHappy-macOS
+          path: |
+            BuildHappy.app
+            BuildHappy.dmg
